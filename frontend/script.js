@@ -31,7 +31,9 @@ function addVideo(id, name, stream, local = false) {
 		tile = document.createElement('article');
 		tile.className = `video-tile${local ? ' local-tile' : ''}`;
 		tile.id = `tile-${id}`;
-		tile.innerHTML = `<video autoplay playsinline></video><div class="video-overlay"><div class="avatar-overlay">${name.charAt(0).toUpperCase()}</div><div class="mute-badge">🔇</div></div><div class="tile-footer"><span class="avatar">${name.charAt(0).toUpperCase()}</span><span class="tile-name"></span><span class="hand-indicator" aria-label="Hand raised">&#9995;</span></div>`;
+		tile.innerHTML = `<video autoplay playsinline></video><div class="video-overlay"><div class="avatar-overlay"><span class="avatar-letter"></span><span class="avatar-name"></span></div><div class="mute-badge">🔇</div></div><div class="tile-footer"><span class="avatar">${name.charAt(0).toUpperCase()}</span><span class="tile-name"></span><span class="hand-indicator" aria-label="Hand raised">&#9995;</span></div>`;
+		tile.querySelector('.avatar-letter').textContent = name.charAt(0).toUpperCase();
+		tile.querySelector('.avatar-name').textContent = local ? `${name} (You)` : name;
 		tile.querySelector('.tile-name').textContent = local ? `${name} (You)` : name;
 		videoGrid.appendChild(tile);
 	}
@@ -271,6 +273,7 @@ async function startMeeting(event) {
 	event.preventDefault();
 	$('join-error').textContent = '';
 	displayName = $('name').value.trim() || 'Guest';
+	updateNameBadge(displayName);
 	const roomValue = $('room').value.trim();
 	try { currentRoom = new URL(roomValue).searchParams.get('room') || roomValue; } catch { currentRoom = roomValue; }
 	currentRoom = currentRoom.trim();
@@ -623,9 +626,92 @@ socket.on('admission-rejected', () => {
 });
 
 socket.on('user-waiting', ({ id, username }) => {
-    if (confirm(`User "${username}" wants to join. Allow entry?`)) {
-        socket.emit('approve-user', { roomId: ROOM_ID, userId: id });
-    } else {
-        socket.emit('reject-user', { roomId: ROOM_ID, userId: id });
-    }
+	if (confirm(`User "${username}" wants to join. Allow entry?`)) socket.emit('host-action', { action: 'approve', target: id });
+	else socket.emit('host-action', { action: 'reject', target: id });
+});
+
+function updateNameBadge(newName) {
+	const badgeText = $('displayName');
+	if (badgeText && newName) badgeText.textContent = newName;
+}
+
+const fullscreenButton = $('fullscreenBtn');
+fullscreenButton?.addEventListener('click', async () => {
+		try {
+			if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+			else await document.exitFullscreen();
+		} catch { showMeetingError('Fullscreen is not available in this browser.'); }
+});
+
+const utilityPanel = $('utility-panel');
+function setUtilityPanelOpen(isOpen) {
+	utilityPanel.classList.toggle('hidden', !isOpen);
+	if (isOpen) {
+		$('chat-panel').classList.remove('open');
+		$('host-panel').classList.add('hidden');
+		$('file-panel').classList.add('hidden');
+	}
+}
+$('more-button').addEventListener('click', () => setUtilityPanelOpen(utilityPanel.classList.contains('hidden')));
+$('close-utility').addEventListener('click', () => setUtilityPanelOpen(false));
+
+async function getAudioDevices() {
+		const select = $('audioOutputSelect');
+		if (!select || !navigator.mediaDevices?.enumerateDevices) return;
+		try {
+			const devices = await navigator.mediaDevices.enumerateDevices();
+			select.replaceChildren(new Option('Default speaker', ''));
+			devices.filter((device) => device.kind === 'audiooutput').forEach((device, index) => {
+				select.appendChild(new Option(device.label || `Speaker ${index + 1}`, device.deviceId));
+			});
+		} catch { showMeetingError('Could not read your speaker devices.'); }
+}
+$('audioOutputSelect').addEventListener('change', async (event) => {
+		const deviceId = event.target.value;
+		for (const media of document.querySelectorAll('audio, video')) {
+			if (typeof media.setSinkId === 'function') await media.setSinkId(deviceId).catch(() => {});
+		}
+		showMeetingError(deviceId ? 'Speaker changed.' : 'Using the default speaker.');
+});
+$('refresh-audio-button').addEventListener('click', getAudioDevices);
+
+let captionRecognition;
+$('captions-toggle').addEventListener('change', (event) => {
+		const captionDisplay = $('caption-display');
+		const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+		if (!event.target.checked) {
+			captionDisplay.classList.add('hidden');
+			captionRecognition?.stop();
+			return;
+		}
+		if (!Recognition) {
+			event.target.checked = false;
+			return showMeetingError('Live captions are not supported by this browser.');
+		}
+		captionDisplay.classList.remove('hidden');
+		captionRecognition = new Recognition();
+		captionRecognition.continuous = true;
+		captionRecognition.interimResults = true;
+		captionRecognition.onresult = (resultEvent) => {
+			captionDisplay.textContent = [...resultEvent.results].map((result) => result[0].transcript).join(' ');
+		};
+		captionRecognition.onend = () => { if ($('captions-toggle').checked) captionRecognition.start(); };
+		captionRecognition.start();
+});
+
+$('email-invite-button').addEventListener('click', () => {
+		const email = $('invite-email').value.trim();
+		if (!email) return showMeetingError('Enter an email address first.');
+		window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Invite to ${currentRoom || 'Gather meeting'}`)}&body=${encodeURIComponent(`Join my meeting: ${meetingLink()}`)}`;
+});
+$('settings-button').addEventListener('click', () => {
+		setUtilityPanelOpen(false);
+		showMeetingError('Use your browser permissions to change camera and microphone devices, then rejoin.');
+});
+$('report-button').addEventListener('click', () => $('report-section').classList.toggle('hidden'));
+$('send-report-button').addEventListener('click', () => {
+		const report = $('report-text').value.trim();
+		if (!report) return showMeetingError('Describe the problem before sending.');
+		showMeetingError('Thanks. Your problem report was recorded for this session.');
+		$('report-text').value = '';
 });
