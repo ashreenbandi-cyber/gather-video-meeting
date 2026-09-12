@@ -83,7 +83,7 @@ io.on('connection', (socket) => {
 				waitingQueue.delete(target);
 				room.set(target, { name: pendingUser.name, handRaised: false, isHost: false, role: 'participant', state: 'approved', mediaState: { audioMuted: false, videoMuted: false } });
 				rooms.set(socket.data.roomId, room);
-				io.sockets.sockets.get(target).data.state = 'approved';
+				io.sockets.sockets.get(target)?.data && (io.sockets.sockets.get(target).data.state = 'approved');
 				io.to(target).emit('approval-granted');
 				const peers = [...room.entries()].filter(([id]) => id !== target).map(([id, p]) => ({ id, ...p }));
 				io.to(target).emit('room-users', peers);
@@ -96,7 +96,7 @@ io.on('connection', (socket) => {
 			if (waitingQueue?.has(target)) {
 				waitingQueue.delete(target);
 				io.to(target).emit('approval-rejected');
-				io.sockets.sockets.get(target).disconnect(true);
+				io.sockets.sockets.get(target)?.disconnect(true);
 				const queueList = [...waitingQueue.entries()].map(([id, user]) => ({ id, ...user }));
 				io.to(socket.data.roomId).emit('waiting-queue', queueList);
 			}
@@ -124,11 +124,7 @@ io.on('connection', (socket) => {
 		const participant = room?.get(socket.id);
 		if (!roomId || !participant) return;
 		participant.mediaState = { audioMuted: Boolean(audioMuted), videoMuted: Boolean(videoMuted) };
-		io.to(roomId).emit('participant-media-state', {
-			id: socket.id,
-			audioMuted: Boolean(audioMuted),
-			videoMuted: Boolean(videoMuted)
-		});
+		io.to(roomId).emit('participant-media-state', { id: socket.id, audioMuted: Boolean(audioMuted), videoMuted: Boolean(videoMuted) });
 	});
 
 	socket.on('signal', ({ target, signal }) => {
@@ -140,12 +136,7 @@ io.on('connection', (socket) => {
 		if (!roomId || typeof text !== 'string') return;
 		const message = text.trim().slice(0, 1000);
 		if (!message) return;
-		io.to(roomId).emit('chat-message', {
-			id: socket.id,
-			name: socket.data.name || 'Guest',
-			text: message,
-			timestamp: Date.now()
-		});
+		io.to(roomId).emit('chat-message', { id: socket.id, name: socket.data.name || 'Guest', text: message, timestamp: Date.now() });
 	});
 
 	socket.on('hand-raise', (raised) => {
@@ -156,55 +147,35 @@ io.on('connection', (socket) => {
 	});
 
 	socket.on('ice-restart', ({ target }) => {
-		if (target && socket.data.roomId) {
-			io.to(target).emit('ice-restart-required', { from: socket.id });
-		}
+		if (target && socket.data.roomId) io.to(target).emit('ice-restart-required', { from: socket.id });
 	});
 
 	socket.on('recording-start', () => {
-		const roomId = socket.data.roomId;
-		const room = rooms.get(roomId);
-		if (!room || !room.get(socket.id)?.isHost) return;
-		io.to(roomId).emit('recording-started', { timestamp: Date.now() });
+		const room = rooms.get(socket.data.roomId);
+		if (room?.get(socket.id)?.isHost) io.to(socket.data.roomId).emit('recording-started', { timestamp: Date.now() });
 	});
 
 	socket.on('recording-stop', () => {
-		const roomId = socket.data.roomId;
-		const room = rooms.get(roomId);
-		if (!room || !room.get(socket.id)?.isHost) return;
-		io.to(roomId).emit('recording-stopped', { timestamp: Date.now() });
+		const room = rooms.get(socket.data.roomId);
+		if (room?.get(socket.id)?.isHost) io.to(socket.data.roomId).emit('recording-stopped', { timestamp: Date.now() });
 	});
 
-	socket.on('file-share-request', ({ to, filename, size }) => {
-		io.to(to).emit('file-share-pending', { from: socket.id, fromName: socket.data.name, filename, size });
-	});
-
-	socket.on('file-share-approve', ({ from, filename }) => {
-		io.to(from).emit('file-share-approved', { to: socket.id, filename });
-	});
-
-	socket.on('file-share-deny', ({ from, filename }) => {
-		io.to(from).emit('file-share-denied', { to: socket.id, filename });
-	});
-
-	socket.on('file-chunk', ({ to, filename, chunk, chunkIndex, totalChunks }) => {
-		io.to(to).emit('file-chunk', { from: socket.id, filename, chunk, chunkIndex, totalChunks });
-	});
+	socket.on('file-share-request', ({ to, filename, size }) => io.to(to).emit('file-share-pending', { from: socket.id, fromName: socket.data.name, filename, size }));
+	socket.on('file-share-approve', ({ from, filename }) => io.to(from).emit('file-share-approved', { to: socket.id, filename }));
+	socket.on('file-share-deny', ({ from, filename }) => io.to(from).emit('file-share-denied', { to: socket.id, filename }));
+	socket.on('file-chunk', ({ to, filename, chunk, chunkIndex, totalChunks }) => io.to(to).emit('file-chunk', { from: socket.id, filename, chunk, chunkIndex, totalChunks }));
 
 	socket.on('disconnect', () => {
 		const roomId = socket.data.roomId;
 		const room = rooms.get(roomId);
 		const waitingQueue = waitingQueues.get(roomId);
-
 		if (waitingQueue?.has(socket.id)) {
 			waitingQueue.delete(socket.id);
 			io.to(roomId).emit('waiting-queue', [...waitingQueue.entries()].map(([id, user]) => ({ id, ...user })));
 		}
-
 		if (!room) return;
 		const wasHost = room.get(socket.id)?.isHost;
 		room.delete(socket.id);
-
 		if (wasHost && room.size > 0) {
 			const [newHostId, newHost] = room.entries().next().value;
 			newHost.isHost = true;
@@ -212,7 +183,6 @@ io.on('connection', (socket) => {
 			io.to(newHostId).emit('host-status', true);
 			io.to(roomId).emit('host-changed', newHostId);
 		}
-
 		socket.to(roomId).emit('user-left', socket.id);
 		if (room.size === 0) {
 			rooms.delete(roomId);
@@ -223,4 +193,3 @@ io.on('connection', (socket) => {
 
 const port = Number(process.env.PORT) || 5000;
 server.listen(port, '0.0.0.0', () => console.log(`Video meeting server running on port ${port}`));
-
