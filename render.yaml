@@ -3,6 +3,7 @@ services:
     name: gather-video-meeting
     runtime: node
     plan: free
+    rootDir: .
     buildCommand: npm install --prefix backend
     startCommand: node backend/server.js
     healthCheckPath: /health
