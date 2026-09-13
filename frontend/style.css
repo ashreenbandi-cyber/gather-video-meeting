@@ -56,3 +56,6 @@ body { overflow-x: hidden; }
 .avatar-overlay { flex-direction: column; gap: 12px; }
 .avatar-letter { display: grid; place-items: center; width: 82px; height: 82px; border-radius: 50%; background: var(--lime); color: var(--ink); font-size: 42px; font-weight: 700; }
 .avatar-name { color: white; font-size: 15px; font-weight: 700; }
+.tile-footer { z-index: 4; }
+.tile-name { margin-left: auto; padding: 5px 8px; border-radius: 4px; background: rgba(23, 33, 38, .78); }
+.hand-indicator { z-index: 5; }
