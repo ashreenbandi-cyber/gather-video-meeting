@@ -693,6 +693,14 @@ $('audioOutputSelect').addEventListener('change', async (event) => {
 });
 $('refresh-audio-button').addEventListener('click', getAudioDevices);
 
+$('video-effect-select').addEventListener('change', (event) => {
+		const effect = event.target.value;
+		const localVideo = document.querySelector(`#tile-${localTileId} video`);
+		if (!localVideo) return;
+		localVideo.classList.remove('effect-soft-blur', 'effect-dim', 'effect-contrast');
+		if (effect !== 'none') localVideo.classList.add(`effect-${effect}`);
+});
+
 let captionRecognition;
 $('captions-toggle').addEventListener('change', (event) => {
 		const captionDisplay = $('caption-display');
@@ -730,6 +738,7 @@ $('report-button').addEventListener('click', () => $('report-section').classList
 $('send-report-button').addEventListener('click', () => {
 		const report = $('report-text').value.trim();
 		if (!report) return showMeetingError('Describe the problem before sending.');
-		showMeetingError('Thanks. Your problem report was recorded for this session.');
+		socket.emit('report-problem', report);
+		showMeetingError('Thanks. Your problem report was sent.');
 		$('report-text').value = '';
 });

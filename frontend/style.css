@@ -59,6 +59,9 @@ body { overflow-x: hidden; }
 .tile-footer { z-index: 4; }
 .tile-name { margin-left: auto; padding: 5px 8px; border-radius: 4px; background: rgba(23, 33, 38, .78); }
 .hand-indicator { z-index: 5; }
+.effect-soft-blur { filter: blur(3px); }
+.effect-dim { filter: brightness(.72) saturate(.85); }
+.effect-contrast { filter: contrast(1.25) saturate(1.1); }
 .local-tile video { display: block; visibility: visible; opacity: 1; }
 @media (max-width: 800px) {
     .meeting-body { min-height: 0; }

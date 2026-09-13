@@ -139,6 +139,12 @@ io.on('connection', (socket) => {
 		io.to(roomId).emit('chat-message', { id: socket.id, name: socket.data.name || 'Guest', text: message, timestamp: Date.now() });
 	});
 
+	socket.on('report-problem', (text) => {
+		const report = typeof text === 'string' ? text.trim().slice(0, 500) : '';
+		if (!report || !socket.data.roomId) return;
+		console.warn(`[meeting-report] room=${socket.data.roomId} user=${socket.data.name || 'Guest'}: ${report}`);
+	});
+
 	socket.on('hand-raise', (raised) => {
 		const room = rooms.get(socket.data.roomId);
 		if (!room || !room.has(socket.id)) return;
