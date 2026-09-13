@@ -71,8 +71,33 @@ body { overflow-x: hidden; }
 .effect-dim { filter: brightness(.72) saturate(.85); }
 .effect-contrast { filter: contrast(1.25) saturate(1.1); }
 .local-tile video { display: block; visibility: visible; opacity: 1; }
+.join-screen { min-height: 100svh; align-items: start; padding: clamp(24px, 5vh, 56px) clamp(20px, 6vw, 88px); }
+.landing-mark { margin-bottom: clamp(28px, 5vh, 52px); }
+.join-card { align-self: start; margin-top: clamp(20px, 6vh, 64px); }
 @media (max-width: 800px) {
+    .join-screen { min-height: 100svh; padding: 28px 20px 40px; }
+    .join-copy { margin-bottom: 28px; }
+    .landing-mark { margin-bottom: 34px; }
+    .join-card { margin-top: 0; }
     .meeting-body { min-height: 0; }
     .video-grid { align-content: start; }
     .meeting-notifications { top: 10px; right: 10px; width: calc(100% - 20px); }
+}
+@media (max-height: 500px) and (min-width: 560px) {
+    .join-screen { display: grid; grid-template-columns: minmax(0, .9fr) minmax(260px, 1.1fr); gap: 20px; min-height: 100svh; padding: 18px 20px; }
+    .join-copy { margin: 0; }
+    .landing-mark { margin-bottom: 18px; }
+    .join-copy .eyebrow { margin-bottom: 8px; font-size: 9px; }
+    .join-copy h1 { font-size: 42px; }
+    .join-copy .intro { display: none; }
+    .join-card { width: 100%; max-width: none; max-height: calc(100svh - 36px); overflow-y: auto; margin: 0; padding: 18px; box-shadow: 7px 7px 0 var(--lime); }
+    .join-card .brand-mark { width: 30px; height: 30px; margin-bottom: 10px; font-size: 17px; }
+    .join-card h2 { margin-bottom: 12px; font-size: 20px; }
+    .join-card .entry-actions { gap: 6px; }
+    .join-card .secondary-button { padding: 8px; font-size: 11px; }
+    .join-card .invite-info { display: none; }
+    .join-card .join-divider { margin: 12px 0 4px; }
+    .join-card label { margin: 8px 0 3px; }
+    .join-card input { padding: 7px 0; }
+    .join-card .text-button { margin-top: 10px; }
 }
