@@ -39,11 +39,17 @@ function addVideo(id, name, stream, local = false) {
 	}
 	const video = tile.querySelector('video');
 	video.muted = local;
+	video.autoplay = true;
+	video.playsInline = true;
+	video.setAttribute('playsinline', '');
+	video.setAttribute('autoplay', '');
 	video.srcObject = stream;
 	applyAudioOutputPreference(video);
-	video.play().catch(() => {
+	const playPreview = () => video.play().catch(() => {
 		if (!local) showMeetingError('Click anywhere in the meeting to enable participant audio.');
 	});
+	video.onloadedmetadata = playPreview;
+	playPreview();
 	updateBadges(id);
 	updateCount();
 }
@@ -291,7 +297,13 @@ async function startMeeting(event) {
 			autoGainControl: true,
 		};
 		if (preferredAudioInputId) audioConstraints.deviceId = { exact: preferredAudioInputId };
-		localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: audioConstraints });
+		const videoConstraints = { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' };
+		try {
+			localStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: audioConstraints });
+		} catch (error) {
+			if (error.name !== 'OverconstrainedError') throw error;
+			localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+		}
 		localTileId = socket.id || 'local';
 		participants.set(socket.id, { name: displayName, isHost: false, role: 'participant', mediaState: { audioMuted: false, videoMuted: false } });
 		addVideo(localTileId, displayName, localStream, true);
@@ -311,7 +323,13 @@ async function startMeeting(event) {
 			}
 		});
 	} catch (error) {
-		$('join-error').textContent = error.name === 'NotAllowedError' ? 'Camera and microphone access is required.' : 'Could not access your camera. Check your device and try again.';
+		const messages = {
+			NotAllowedError: 'Allow camera and microphone access in your phone browser settings, then try again.',
+			NotFoundError: 'No camera or microphone was found on this device.',
+			NotReadableError: 'Your camera is being used by another app. Close it and try again.',
+			SecurityError: 'Camera access requires the secure HTTPS meeting link.',
+		};
+		$('join-error').textContent = messages[error.name] || 'Could not access your camera. Check your phone permissions and try again.';
 	}
 }
 

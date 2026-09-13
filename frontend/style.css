@@ -59,3 +59,8 @@ body { overflow-x: hidden; }
 .tile-footer { z-index: 4; }
 .tile-name { margin-left: auto; padding: 5px 8px; border-radius: 4px; background: rgba(23, 33, 38, .78); }
 .hand-indicator { z-index: 5; }
+.local-tile video { display: block; visibility: visible; opacity: 1; }
+@media (max-width: 800px) {
+    .meeting-body { min-height: 0; }
+    .video-grid { align-content: start; }
+}
