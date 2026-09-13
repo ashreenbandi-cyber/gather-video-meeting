@@ -18,6 +18,7 @@ let preferredAudioOutputId = null;
 let currentConnectionState = 'new';
 let iceRestartInProgress = false;
 let isHeadphonesConnected = false;
+let cameraFacingMode = 'user';
 
 const $ = (id) => document.getElementById(id);
 const joinScreen = $('join-screen');
@@ -90,6 +91,16 @@ function publishMediaState() {
 }
 
 function updateCount() { $('participant-count').textContent = videoGrid.children.length; }
+
+function showMeetingToast(message, type = 'info') {
+	const stack = $('meeting-notifications');
+	if (!stack) return;
+	const toast = document.createElement('div');
+	toast.className = `meeting-toast ${type}`;
+	toast.textContent = message;
+	stack.appendChild(toast);
+	window.setTimeout(() => toast.remove(), 5000);
+}
 
 function createRoomCode() {
 	return `gather-${Math.random().toString(36).slice(2, 8)}`;
@@ -370,7 +381,14 @@ socket.on('approval-rejected', () => {
 	joinScreen.classList.remove('hidden');
 	$('join-error').textContent = 'The host declined your request to join.';
 });
-socket.on('waiting-queue', renderWaitingQueue);
+socket.on('waiting-queue', (queue) => {
+	const previousCount = pendingQueue.length;
+	renderWaitingQueue(queue);
+	if (isHost && pendingQueue.length > previousCount) {
+		const latest = pendingQueue[pendingQueue.length - 1];
+		showMeetingToast(`${latest?.name || 'Someone'} is waiting to join`, 'waiting');
+	}
+});
 socket.on('host-status', (host) => {
 	isHost = host;
 	$('host-button').classList.toggle('hidden', !host);
@@ -409,7 +427,11 @@ socket.on('mute-request', () => {
 	}
 });
 socket.on('removed-by-host', () => { localStream?.getTracks().forEach((track) => track.stop()); showMeetingError('The host removed you from the meeting.'); window.setTimeout(() => window.location.reload(), 1500); });
-socket.on('hand-raise', ({ id, raised }) => { document.querySelector(`#tile-${id} .hand-indicator`)?.classList.toggle('visible', raised); });
+socket.on('hand-raise', ({ id, raised }) => {
+	const participant = participants.get(id);
+	if (raised && id !== socket.id) showMeetingToast(`${participant?.name || 'A participant'} raised their hand`, 'hand');
+	document.querySelector(`#tile-${id} .hand-indicator`)?.classList.toggle('visible', raised);
+});
 socket.on('chat-message', ({ id, name, text, timestamp }) => {
 	const item = document.createElement('div');
 	item.className = `message ${id === socket.id ? 'mine' : ''}`;
@@ -419,6 +441,7 @@ socket.on('chat-message', ({ id, name, text, timestamp }) => {
 	item.querySelector('p').textContent = text;
 	$('messages').appendChild(item);
 	$('messages').scrollTop = $('messages').scrollHeight;
+	if (id !== socket.id && !$('chat-panel').classList.contains('open')) showMeetingToast(`${name}: ${text}`, 'chat');
 });
 socket.on('recording-started', () => { $('record-button').classList.add('active'); document.querySelector('#record-button small').textContent = 'Stop'; showMeetingError('Recording started'); });
 socket.on('recording-stopped', () => { $('record-button').classList.remove('active'); document.querySelector('#record-button small').textContent = 'Record'; showMeetingError('Recording stopped'); });
@@ -507,6 +530,27 @@ $('camera-button').addEventListener('click', () => {
 	$('camera-button').classList.toggle('muted', !track.enabled);
 	document.querySelector('#camera-button small').textContent = track.enabled ? 'Camera' : 'Video off';
 	publishMediaState();
+});
+$('switch-camera-button').addEventListener('click', async () => {
+	if (!localStream?.getVideoTracks().length) return showMeetingToast('Camera is not available.', 'error');
+	const nextFacingMode = cameraFacingMode === 'user' ? 'environment' : 'user';
+	try {
+		const replacementStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: nextFacingMode } }, audio: false });
+		const replacementTrack = replacementStream.getVideoTracks()[0];
+		for (const { connection } of peers.values()) {
+			const sender = connection.getSenders().find((item) => item.track?.kind === 'video');
+			if (sender) await sender.replaceTrack(replacementTrack);
+		}
+		const oldTrack = localStream.getVideoTracks()[0];
+		localStream.removeTrack(oldTrack);
+		localStream.addTrack(replacementTrack);
+		oldTrack.stop();
+		cameraFacingMode = nextFacingMode;
+		addVideo(localTileId, displayName, localStream, true);
+		showMeetingToast(cameraFacingMode === 'user' ? 'Front camera selected.' : 'Back camera selected.');
+	} catch (error) {
+		showMeetingToast(error.name === 'OverconstrainedError' ? 'This device does not have that camera.' : 'Could not switch camera.', 'error');
+	}
 });
 $('hand-button').addEventListener('click', () => { handRaised = !handRaised; $('hand-button').classList.toggle('active', handRaised); document.querySelector('#hand-button small').textContent = handRaised ? 'Lower hand' : 'Raise hand'; socket.emit('hand-raise', handRaised); });
 $('share-button').addEventListener('click', async () => {

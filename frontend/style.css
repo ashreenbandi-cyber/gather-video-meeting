@@ -59,6 +59,14 @@ body { overflow-x: hidden; }
 .tile-footer { z-index: 4; }
 .tile-name { margin-left: auto; padding: 5px 8px; border-radius: 4px; background: rgba(23, 33, 38, .78); }
 .hand-indicator { z-index: 5; }
+.hand-indicator { position: absolute; top: 12px; right: 12px; margin-left: 0; }
+.meeting-notifications { position: absolute; top: 18px; right: 18px; z-index: 8; display: grid; gap: 8px; width: min(340px, calc(100% - 36px)); pointer-events: none; }
+.meeting-toast { padding: 11px 14px; border-left: 4px solid var(--lime); background: rgba(23, 33, 38, .94); color: white; box-shadow: 0 5px 18px rgba(23, 33, 38, .18); font-size: 12px; animation: toast-in .18s ease-out; }
+.meeting-toast.waiting { border-color: #ffb454; }
+.meeting-toast.hand { border-color: var(--lime); }
+.meeting-toast.chat { border-color: #8bd3dd; }
+.meeting-toast.error { border-color: var(--orange); }
+@keyframes toast-in { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .effect-soft-blur { filter: blur(3px); }
 .effect-dim { filter: brightness(.72) saturate(.85); }
 .effect-contrast { filter: contrast(1.25) saturate(1.1); }
@@ -66,4 +74,5 @@ body { overflow-x: hidden; }
 @media (max-width: 800px) {
     .meeting-body { min-height: 0; }
     .video-grid { align-content: start; }
+    .meeting-notifications { top: 10px; right: 10px; width: calc(100% - 20px); }
 }
