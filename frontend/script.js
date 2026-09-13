@@ -19,6 +19,7 @@ let currentConnectionState = 'new';
 let iceRestartInProgress = false;
 let isHeadphonesConnected = false;
 let cameraFacingMode = 'user';
+const raisedHandNotifications = new Map();
 
 const $ = (id) => document.getElementById(id);
 const joinScreen = $('join-screen');
@@ -100,6 +101,24 @@ function showMeetingToast(message, type = 'info') {
 	toast.textContent = message;
 	stack.appendChild(toast);
 	window.setTimeout(() => toast.remove(), 5000);
+}
+
+function updateRaisedHandNotification(id, name, raised) {
+	const stack = $('meeting-notifications');
+	if (!stack) return;
+	const existing = raisedHandNotifications.get(id);
+	if (!raised) {
+		existing?.remove();
+		raisedHandNotifications.delete(id);
+		return;
+	}
+	if (existing) return;
+	const notification = document.createElement('div');
+	notification.className = 'meeting-toast hand persistent-hand-toast';
+	notification.dataset.participantId = id;
+	notification.textContent = `✋ ${name || 'A participant'} raised their hand`;
+	stack.appendChild(notification);
+	raisedHandNotifications.set(id, notification);
 }
 
 function createRoomCode() {
@@ -429,7 +448,7 @@ socket.on('mute-request', () => {
 socket.on('removed-by-host', () => { localStream?.getTracks().forEach((track) => track.stop()); showMeetingError('The host removed you from the meeting.'); window.setTimeout(() => window.location.reload(), 1500); });
 socket.on('hand-raise', ({ id, raised }) => {
 	const participant = participants.get(id);
-	if (raised && id !== socket.id) showMeetingToast(`${participant?.name || 'A participant'} raised their hand`, 'hand');
+	if (id !== socket.id) updateRaisedHandNotification(id, participant?.name, raised);
 	document.querySelector(`#tile-${id} .hand-indicator`)?.classList.toggle('visible', raised);
 });
 socket.on('chat-message', ({ id, name, text, timestamp }) => {
