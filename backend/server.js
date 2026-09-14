@@ -146,10 +146,14 @@ io.on('connection', (socket) => {
 	});
 
 	socket.on('hand-raise', (raised) => {
-		const room = rooms.get(socket.data.roomId);
+		const roomId = socket.data.roomId;
+		const room = rooms.get(roomId);
 		if (!room || !room.has(socket.id)) return;
-		room.get(socket.id).handRaised = Boolean(raised);
-		io.to(socket.data.roomId).emit('hand-raise', { id: socket.id, raised: Boolean(raised) });
+		const handIsRaised = Boolean(raised);
+		room.get(socket.id).handRaised = handIsRaised;
+		io.to(roomId).emit('hand-raise', { id: socket.id, raised: handIsRaised });
+		const host = [...room.entries()].find(([, participant]) => participant.isHost);
+		if (host) io.to(host[0]).emit('hand-raised-notification', { id: socket.id, name: socket.data.name || 'Guest', raised: handIsRaised });
 	});
 
 	socket.on('ice-restart', ({ target }) => {

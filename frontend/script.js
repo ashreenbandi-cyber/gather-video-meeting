@@ -33,7 +33,7 @@ function addVideo(id, name, stream, local = false) {
 		tile = document.createElement('article');
 		tile.className = `video-tile${local ? ' local-tile' : ''}`;
 		tile.id = `tile-${id}`;
-		tile.innerHTML = `<video autoplay playsinline></video><div class="video-overlay"><div class="avatar-overlay"><span class="avatar-letter"></span><span class="avatar-name"></span></div><div class="mute-badge">🔇</div></div><div class="tile-footer"><span class="avatar">${name.charAt(0).toUpperCase()}</span><span class="tile-name"></span><span class="hand-indicator" aria-label="Hand raised">&#9995;</span></div>`;
+		tile.innerHTML = `<video autoplay playsinline></video><div class="video-overlay"><div class="avatar-overlay"><span class="avatar-letter"></span><span class="avatar-name"></span></div><div class="mute-badge">🔇</div></div><span class="hand-indicator" aria-label="Hand raised">&#9995;</span><div class="tile-footer"><span class="avatar">${name.charAt(0).toUpperCase()}</span><span class="tile-name"></span></div>`;
 		tile.querySelector('.avatar-letter').textContent = name.charAt(0).toUpperCase();
 		tile.querySelector('.avatar-name').textContent = local ? `${name} (You)` : name;
 		tile.querySelector('.tile-name').textContent = local ? `${name} (You)` : name;
@@ -447,9 +447,10 @@ socket.on('mute-request', () => {
 });
 socket.on('removed-by-host', () => { localStream?.getTracks().forEach((track) => track.stop()); showMeetingError('The host removed you from the meeting.'); window.setTimeout(() => window.location.reload(), 1500); });
 socket.on('hand-raise', ({ id, raised }) => {
-	const participant = participants.get(id);
-	if (id !== socket.id) updateRaisedHandNotification(id, participant?.name, raised);
 	document.querySelector(`#tile-${id} .hand-indicator`)?.classList.toggle('visible', raised);
+});
+socket.on('hand-raised-notification', ({ id, name, raised }) => {
+	if (isHost && id !== socket.id) updateRaisedHandNotification(id, name, raised);
 });
 socket.on('chat-message', ({ id, name, text, timestamp }) => {
 	const item = document.createElement('div');
