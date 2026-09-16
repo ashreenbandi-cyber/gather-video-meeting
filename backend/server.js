@@ -86,7 +86,10 @@ io.on('connection', (socket) => {
 				waitingQueue.delete(target);
 				room.set(target, { name: pendingUser.name, email: pendingUser.email, handRaised: false, isHost: false, role: 'participant', state: 'approved', mediaState: { audioMuted: false, videoMuted: false } });
 				rooms.set(socket.data.roomId, room);
-				io.sockets.sockets.get(target)?.data && (io.sockets.sockets.get(target).data.state = 'approved');
+				const approvedSocket = io.sockets.sockets.get(target);
+				if (!approvedSocket) return;
+				approvedSocket.join(socket.data.roomId);
+				approvedSocket.data.state = 'approved';
 				io.to(target).emit('approval-granted');
 				const peers = [...room.entries()].filter(([id]) => id !== target).map(([id, p]) => ({ id, ...p }));
 				io.to(target).emit('room-users', peers);
