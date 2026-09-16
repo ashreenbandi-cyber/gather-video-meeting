@@ -798,8 +798,9 @@ async function populateDeviceSettings() {
 }
 $('settings-button').addEventListener('click', async () => {
 	$('device-settings').classList.toggle('hidden');
+	$('settings-button').textContent = $('device-settings').classList.contains('hidden') ? 'Open device settings' : 'Close device settings';
 	if (!$('device-settings').classList.contains('hidden')) {
-		try { await populateDeviceSettings(); } catch { showMeetingError('Could not read camera and microphone devices.'); }
+		try { await populateDeviceSettings(); showMeetingToast('Device settings ready.'); } catch { showMeetingToast('Could not read camera and microphone devices.', 'error'); }
 	}
 });
 $('apply-device-button').addEventListener('click', async () => {
@@ -812,6 +813,10 @@ $('apply-device-button').addEventListener('click', async () => {
 		});
 		const newVideo = replacement.getVideoTracks()[0];
 		const newAudio = replacement.getAudioTracks()[0];
+		const videoWasEnabled = localStream?.getVideoTracks()[0]?.enabled !== false;
+		const audioWasEnabled = localStream?.getAudioTracks()[0]?.enabled !== false;
+		if (newVideo) newVideo.enabled = videoWasEnabled;
+		if (newAudio) newAudio.enabled = audioWasEnabled;
 		for (const { connection } of peers.values()) {
 			const videoSender = connection.getSenders().find((sender) => sender.track?.kind === 'video');
 			const audioSender = connection.getSenders().find((sender) => sender.track?.kind === 'audio');
@@ -821,8 +826,9 @@ $('apply-device-button').addEventListener('click', async () => {
 		localStream.getTracks().forEach((track) => track.stop());
 		localStream = replacement;
 		addVideo(localTileId, displayName, localStream, true);
+		publishMediaState();
 		showMeetingToast('Camera and microphone updated.');
-	} catch { showMeetingError('Could not apply the selected devices. Check browser permissions.'); }
+	} catch { showMeetingToast('Could not apply the selected devices. Check browser permissions.', 'error'); }
 });
 
 $('video-effect-select').addEventListener('change', (event) => {
@@ -865,8 +871,9 @@ $('email-invite-button').addEventListener('click', () => {
 $('report-button').addEventListener('click', () => $('report-section').classList.toggle('hidden'));
 $('send-report-button').addEventListener('click', () => {
 		const report = $('report-text').value.trim();
-		if (!report) return showMeetingError('Describe the problem before sending.');
+		if (!report) return showMeetingToast('Describe the problem before sending.', 'error');
 		socket.emit('report-problem', report);
-		showMeetingError('Thanks. Your problem report was sent.');
+		showMeetingToast('Thanks. Your problem report was sent.', 'success');
 		$('report-text').value = '';
+		$('report-section').classList.add('hidden');
 });
