@@ -95,7 +95,7 @@ io.on('connection', (socket) => {
 				io.to(target).emit('room-users', peers);
 				const queueList = [...waitingQueue.entries()].map(([id, user]) => ({ id, ...user }));
 				io.to(socket.data.roomId).emit('waiting-queue', queueList);
-				io.to(socket.data.roomId).emit('user-joined', { id: target, name: pendingUser.name, email: pendingUser.email });
+				socket.to(socket.data.roomId).emit('user-joined', { id: target, name: pendingUser.name, email: pendingUser.email });
 			}
 		} else if (action === 'reject') {
 			const waitingQueue = waitingQueues.get(socket.data.roomId);

@@ -80,6 +80,13 @@ body.in-meeting { overflow: hidden; }
 .recording-status time { font-variant-numeric: tabular-nums; color: #ffb4a8; }
 .device-settings { display: grid; gap: 6px; padding-top: 8px; }
 @keyframes recording-pulse { 50% { opacity: .35; } }
+.meeting-body { min-width: 0; }
+.video-grid { grid-auto-rows: minmax(0, 1fr); align-items: center; justify-items: center; }
+.video-tile { min-height: 0; max-height: 100%; }
+.video-tile video { display: block; }
+.profile-chip { cursor: pointer; }
+.profile-chip:focus-visible, .control-button:focus-visible, .icon-button:focus-visible, .secondary-button:focus-visible, .primary-button:focus-visible { outline: 3px solid rgba(125, 155, 57, .45); outline-offset: 2px; }
+.meeting-error { pointer-events: none; }
 .join-screen { min-height: 100svh; align-items: start; padding: clamp(24px, 5vh, 56px) clamp(20px, 6vw, 88px); }
 .landing-mark { margin-bottom: clamp(28px, 5vh, 52px); }
 .join-card { align-self: start; margin-top: clamp(20px, 6vh, 64px); }
