@@ -52,7 +52,7 @@
 					<span id="audio-device-label">Headphones</span>
 				</div>
 				<div class="participant-count"><span id="participant-count">1</span> in room</div>
-				<div class="profile-chip"><span id="displayName">Guest</span><span class="profile-avatar">G</span></div>
+				<button id="profile-button" class="profile-chip" type="button" aria-expanded="false"><span id="displayName">Guest</span><span class="profile-avatar">G</span></button>
 			</div>
 		</header>
 		<section class="meeting-body">
@@ -63,7 +63,7 @@
 				<form id="chat-form" class="chat-form"><input id="chat-input" placeholder="Write a message..." maxlength="1000" autocomplete="off"><button type="submit" aria-label="Send message">&#8594;</button></form>
 			</aside>
 			<aside id="host-panel" class="host-panel hidden">
-				<div class="chat-header"><div><p class="eyebrow">HOST CONTROLS</p><h2>Participants</h2></div><button id="close-host" class="icon-button" type="button" aria-label="Close host controls">&#10005;</button></div>
+				<div class="chat-header"><div><p class="eyebrow">MEETING PEOPLE</p><h2>Participants</h2><p class="panel-hint">A presenter can share their screen with everyone.</p></div><button id="close-host" class="icon-button" type="button" aria-label="Close participants">&#10005;</button></div>
 				<div id="waiting-queue" class="waiting-queue hidden">
 					<p class="eyebrow">WAITING FOR APPROVAL</p>
 					<div id="pending-users"></div>
@@ -81,7 +81,7 @@
 				<section class="utility-section"><h3>Accessibility</h3><label class="setting-toggle"><input id="captions-toggle" type="checkbox"><span>Turn on captions (CC)</span></label></section>
 				<section class="utility-section"><h3>Video effects</h3><label for="video-effect-select">Camera effect</label><select id="video-effect-select"><option value="none">None</option><option value="soft-blur">Soft blur</option><option value="dim">Dim</option><option value="contrast">High contrast</option></select></section>
 				<section class="utility-section"><h3>Audio</h3><label for="audioOutputSelect">Speaker</label><select id="audioOutputSelect"><option value="">Default speaker</option></select><button id="refresh-audio-button" class="secondary-button compact-button" type="button">Refresh devices</button></section>
-				<section class="utility-section"><h3>Settings</h3><button id="settings-button" class="secondary-button compact-button" type="button">Open device settings</button><button id="report-button" class="secondary-button compact-button" type="button">Report a problem</button></section>
+				<section class="utility-section"><h3>Settings</h3><button id="settings-button" class="secondary-button compact-button" type="button">Open device settings</button><div id="device-settings" class="device-settings hidden"><label for="camera-input-select">Camera</label><select id="camera-input-select"></select><label for="microphone-input-select">Microphone</label><select id="microphone-input-select"></select><button id="apply-device-button" class="primary-button compact-button" type="button">Apply devices</button></div><button id="report-button" class="secondary-button compact-button" type="button">Report a problem</button></section>
 				<section id="report-section" class="utility-section hidden"><label for="report-text">What went wrong?</label><textarea id="report-text" rows="3" maxlength="500" placeholder="Tell us what happened"></textarea><button id="send-report-button" class="primary-button compact-button" type="button">Send report</button></section>
 			</aside>
 			<div id="caption-display" class="caption-display hidden" aria-live="polite"></div>
@@ -95,13 +95,13 @@
 			<button id="share-button" class="control-button" type="button"><span>&#8593;</span><small>Share screen</small></button>
 			<button id="chat-button" class="control-button" type="button"><span>&#9993;</span><small>Chat</small></button>
 			<button id="file-button" class="control-button hidden" type="button"><span>&#128451;</span><small>Files</small></button>
-			<button id="host-button" class="control-button hidden" type="button"><span>&#9881;</span><small>Host</small></button>
 			<button id="record-button" class="control-button" type="button"><span>&#9679;</span><small>Record</small></button>
 			<button id="fullscreenBtn" class="control-button" type="button" title="Toggle fullscreen"><span>&#x26F6;</span><small>Fullscreen</small></button>
 			<button id="more-button" class="control-button" type="button" title="More meeting options"><span>&#8942;</span><small>More</small></button>
 			<button id="leave-button" class="control-button leave" type="button"><span>&#10140;</span><small>Leave</small></button>
 		</footer>
 		<div id="meeting-notifications" class="meeting-notifications" aria-live="polite"></div>
+		<div id="recording-status" class="recording-status hidden" aria-live="polite"><span class="recording-dot"></span><strong>Recording</strong><time id="recording-time">00:00</time></div>
 	</main>
 
 	<main id="waiting-screen" class="waiting-screen hidden">

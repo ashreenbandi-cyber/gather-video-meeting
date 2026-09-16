@@ -26,6 +26,7 @@ name-badge {
 /* Live meeting viewport and utility controls */
 html, body { min-height: 100%; }
 body { overflow-x: hidden; }
+body.in-meeting { overflow: hidden; }
 .meeting-screen { height: 100dvh; min-height: 560px; overflow: hidden; }
 .meeting-screen .topbar { flex: 0 0 auto; min-height: 68px; }
 .meeting-body { overflow: hidden; }
@@ -70,6 +71,15 @@ body { overflow-x: hidden; }
 .effect-dim { filter: brightness(.72) saturate(.85); }
 .effect-contrast { filter: contrast(1.25) saturate(1.1); }
 .local-tile video { display: block; visibility: visible; opacity: 1; }
+.meeting-screen { min-height: 100svh; }
+.video-grid { overflow: hidden; align-content: center; }
+.video-tile { width: 100%; max-height: 100%; }
+.profile-chip { border: 1px solid var(--line); }
+.recording-status { position: absolute; top: 18px; left: 50%; z-index: 9; display: flex; align-items: center; gap: 8px; transform: translateX(-50%); padding: 7px 12px; border: 1px solid rgba(255, 128, 102, .35); border-radius: 4px; background: rgba(23, 33, 38, .94); color: white; font-size: 12px; }
+.recording-dot { width: 9px; height: 9px; border-radius: 50%; background: #f04444; box-shadow: 0 0 0 4px rgba(240, 68, 68, .18); animation: recording-pulse 1.2s ease-in-out infinite; }
+.recording-status time { font-variant-numeric: tabular-nums; color: #ffb4a8; }
+.device-settings { display: grid; gap: 6px; padding-top: 8px; }
+@keyframes recording-pulse { 50% { opacity: .35; } }
 .join-screen { min-height: 100svh; align-items: start; padding: clamp(24px, 5vh, 56px) clamp(20px, 6vw, 88px); }
 .landing-mark { margin-bottom: clamp(28px, 5vh, 52px); }
 .join-card { align-self: start; margin-top: clamp(20px, 6vh, 64px); }

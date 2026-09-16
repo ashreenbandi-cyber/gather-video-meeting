@@ -20,6 +20,8 @@ let iceRestartInProgress = false;
 let isHeadphonesConnected = false;
 let cameraFacingMode = 'user';
 const raisedHandNotifications = new Map();
+let recordingStartedAt = 0;
+let recordingTimer;
 
 const $ = (id) => document.getElementById(id);
 const joinScreen = $('join-screen');
@@ -152,6 +154,7 @@ function renderParticipants() {
 			mute.addEventListener('click', () => socket.emit('host-action', { action: 'mute', target: id }));
 			const presenter = document.createElement('button');
 			presenter.type = 'button'; presenter.textContent = participant.role === 'presenter' ? 'Revoke Presenter' : 'Make Presenter';
+			presenter.title = 'Allow this participant to share their screen';
 			presenter.addEventListener('click', () => socket.emit('host-action', { action: 'give-presenter', target: id }));
 			const remove = document.createElement('button');
 			remove.type = 'button'; remove.textContent = 'Remove';
@@ -342,6 +345,7 @@ async function startMeeting(event) {
 		joinScreen.classList.add('hidden');
 		meetingScreen.classList.add('hidden');
 		waitingScreen.classList.add('hidden');
+		document.body.classList.add('in-meeting');
 		socket.emit('join-room', { roomId: currentRoom, name: displayName }, ({ state, host }) => {
 			if (state === 'pending') {
 				joinScreen.classList.add('hidden');
@@ -410,8 +414,6 @@ socket.on('waiting-queue', (queue) => {
 });
 socket.on('host-status', (host) => {
 	isHost = host;
-	$('host-button').classList.toggle('hidden', !host);
-	$('host-panel').classList.toggle('hidden', !host);
 	$('record-button').classList.toggle('hidden', !host);
 	renderWaitingQueue(pendingQueue);
 	if (host) {
@@ -463,8 +465,30 @@ socket.on('chat-message', ({ id, name, text, timestamp }) => {
 	$('messages').scrollTop = $('messages').scrollHeight;
 	if (id !== socket.id && !$('chat-panel').classList.contains('open')) showMeetingToast(`${name}: ${text}`, 'chat');
 });
-socket.on('recording-started', () => { $('record-button').classList.add('active'); document.querySelector('#record-button small').textContent = 'Stop'; showMeetingError('Recording started'); });
-socket.on('recording-stopped', () => { $('record-button').classList.remove('active'); document.querySelector('#record-button small').textContent = 'Record'; showMeetingError('Recording stopped'); });
+function updateRecordingStatus() {
+	if (!recordingStartedAt) return;
+	const elapsed = Math.max(0, Math.floor((Date.now() - recordingStartedAt) / 1000));
+	$('recording-time').textContent = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
+}
+function setRecordingStatus(isRecording, timestamp = Date.now()) {
+	if (isRecording) {
+		recordingStartedAt = timestamp;
+		$('recording-status').classList.remove('hidden');
+		$('record-button').classList.add('active');
+		document.querySelector('#record-button small').textContent = 'Stop';
+		clearInterval(recordingTimer);
+		updateRecordingStatus();
+		recordingTimer = window.setInterval(updateRecordingStatus, 1000);
+	} else {
+		recordingStartedAt = 0;
+		clearInterval(recordingTimer);
+		$('recording-status').classList.add('hidden');
+		$('record-button').classList.remove('active');
+		document.querySelector('#record-button small').textContent = 'Record';
+	}
+}
+socket.on('recording-started', ({ timestamp }) => { setRecordingStatus(true, timestamp || Date.now()); showMeetingToast('Recording started', 'recording'); });
+socket.on('recording-stopped', () => { setRecordingStatus(false); showMeetingToast('Recording stopped', 'recording'); });
 socket.on('file-share-pending', ({ from, fromName, filename, size }) => {
 	const fileRequests = $('file-requests');
 	const item = document.createElement('div');
@@ -645,11 +669,12 @@ $('chat-button').addEventListener('click', () => {
 	setChatPanelOpen(shouldOpen);
 });
 $('close-chat').addEventListener('click', () => setChatPanelOpen(false));
-$('host-button').addEventListener('click', () => {
+$('close-host').addEventListener('click', () => setHostPanelOpen(false));
+$('profile-button').addEventListener('click', () => {
 	const shouldOpen = $('host-panel').classList.contains('hidden');
 	setHostPanelOpen(shouldOpen);
+	$('profile-button').setAttribute('aria-expanded', String(shouldOpen));
 });
-$('close-host').addEventListener('click', () => setHostPanelOpen(false));
 $('file-button').addEventListener('click', () => {
 	const shouldOpen = $('file-panel').classList.contains('hidden');
 	setFilePanelOpen(shouldOpen);
@@ -674,17 +699,16 @@ $('record-button').addEventListener('click', () => {
 		link.download = `gather-${currentRoom}-${Date.now()}.webm`;
 		link.click();
 		URL.revokeObjectURL(link.href);
-		$('record-button').classList.remove('active');
-		document.querySelector('#record-button small').textContent = 'Record';
+		setRecordingStatus(false);
 		socket.emit('recording-stop');
 	};
 	recorder.start();
 	socket.emit('recording-start');
 	$('record-button').classList.add('active');
-	document.querySelector('#record-button small').textContent = 'Stop recording';
+	setRecordingStatus(true);
 });
 $('cancel-wait-button').addEventListener('click', () => { socket.disconnect(); window.location.reload(); });
-$('leave-button').addEventListener('click', () => { localStream?.getTracks().forEach((track) => track.stop()); screenStream?.getTracks().forEach((track) => track.stop()); socket.disconnect(); window.location.reload(); });
+$('leave-button').addEventListener('click', () => { document.body.classList.remove('in-meeting'); localStream?.getTracks().forEach((track) => track.stop()); screenStream?.getTracks().forEach((track) => track.stop()); socket.disconnect(); window.location.reload(); });
 
 document.addEventListener('click', () => {
 	videoGrid.querySelectorAll('video:not([muted])').forEach((video) => video.play().catch(() => {}));
@@ -757,6 +781,49 @@ $('audioOutputSelect').addEventListener('change', async (event) => {
 });
 $('refresh-audio-button').addEventListener('click', getAudioDevices);
 
+async function populateDeviceSettings() {
+	const cameraSelect = $('camera-input-select');
+	const microphoneSelect = $('microphone-input-select');
+	if (!cameraSelect || !microphoneSelect || !navigator.mediaDevices?.enumerateDevices) return;
+	const devices = await navigator.mediaDevices.enumerateDevices();
+	cameraSelect.replaceChildren();
+	microphoneSelect.replaceChildren();
+	devices.filter((device) => device.kind === 'videoinput').forEach((device, index) => cameraSelect.appendChild(new Option(device.label || `Camera ${index + 1}`, device.deviceId)));
+	devices.filter((device) => device.kind === 'audioinput').forEach((device, index) => microphoneSelect.appendChild(new Option(device.label || `Microphone ${index + 1}`, device.deviceId)));
+	const currentVideo = localStream?.getVideoTracks()[0]?.getSettings().deviceId;
+	const currentAudio = localStream?.getAudioTracks()[0]?.getSettings().deviceId;
+	if (currentVideo) cameraSelect.value = currentVideo;
+	if (currentAudio) microphoneSelect.value = currentAudio;
+}
+$('settings-button').addEventListener('click', async () => {
+	$('device-settings').classList.toggle('hidden');
+	if (!$('device-settings').classList.contains('hidden')) {
+		try { await populateDeviceSettings(); } catch { showMeetingError('Could not read camera and microphone devices.'); }
+	}
+});
+$('apply-device-button').addEventListener('click', async () => {
+	const videoDeviceId = $('camera-input-select').value;
+	const audioDeviceId = $('microphone-input-select').value;
+	try {
+		const replacement = await navigator.mediaDevices.getUserMedia({
+			video: videoDeviceId ? { deviceId: { exact: videoDeviceId } } : true,
+			audio: audioDeviceId ? { deviceId: { exact: audioDeviceId }, echoCancellation: true, noiseSuppression: true } : true,
+		});
+		const newVideo = replacement.getVideoTracks()[0];
+		const newAudio = replacement.getAudioTracks()[0];
+		for (const { connection } of peers.values()) {
+			const videoSender = connection.getSenders().find((sender) => sender.track?.kind === 'video');
+			const audioSender = connection.getSenders().find((sender) => sender.track?.kind === 'audio');
+			if (videoSender && newVideo) await videoSender.replaceTrack(newVideo);
+			if (audioSender && newAudio) await audioSender.replaceTrack(newAudio);
+		}
+		localStream.getTracks().forEach((track) => track.stop());
+		localStream = replacement;
+		addVideo(localTileId, displayName, localStream, true);
+		showMeetingToast('Camera and microphone updated.');
+	} catch { showMeetingError('Could not apply the selected devices. Check browser permissions.'); }
+});
+
 $('video-effect-select').addEventListener('change', (event) => {
 		const effect = event.target.value;
 		const localVideo = document.querySelector(`#tile-${localTileId} video`);
@@ -793,10 +860,6 @@ $('email-invite-button').addEventListener('click', () => {
 		const email = $('invite-email').value.trim();
 		if (!email) return showMeetingError('Enter an email address first.');
 		window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Invite to ${currentRoom || 'Gather meeting'}`)}&body=${encodeURIComponent(`Join my meeting: ${meetingLink()}`)}`;
-});
-$('settings-button').addEventListener('click', () => {
-		setUtilityPanelOpen(false);
-		showMeetingError('Use your browser permissions to change camera and microphone devices, then rejoin.');
 });
 $('report-button').addEventListener('click', () => $('report-section').classList.toggle('hidden'));
 $('send-report-button').addEventListener('click', () => {
