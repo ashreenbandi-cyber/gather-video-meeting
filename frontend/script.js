@@ -426,6 +426,7 @@ socket.on('host-changed', (id) => { const participant = participants.get(id); if
 socket.on('participant-role-changed', ({ id, role }) => {
 	const participant = participants.get(id);
 	if (participant) participant.role = role;
+	if (id === socket.id) isPresenter = role === 'presenter';
 	renderParticipants();
 });
 socket.on('participant-media-state', ({ id, audioMuted, videoMuted }) => {
@@ -612,10 +613,7 @@ $('share-button').addEventListener('click', async () => {
 		track.onended = stopSharing;
 		$('share-button').classList.add('active');
 		document.querySelector('#share-button small').textContent = 'Stop sharing';
-		if (isPresenter) {
-			isPresenter = true;
-			io.to(currentRoom).emit('participant-role-changed', { id: socket.id, role: 'presenter' });
-		}
+		if (isPresenter) showMeetingToast('You are presenting to the meeting.');
 	} catch (error) {
 		if (error.name === 'AbortError' || error.name === 'NotAllowedError') return;
 		const message = error.name === 'NotReadableError'
