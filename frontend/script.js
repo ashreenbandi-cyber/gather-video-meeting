@@ -4,6 +4,7 @@ let localStream;
 let screenStream;
 let currentRoom;
 let displayName;
+let emailAddress;
 let handRaised = false;
 let localTileId;
 let isHost = false;
@@ -144,7 +145,7 @@ function renderParticipants() {
 		const label = document.createElement('span');
 		const muteStatus = participant.mediaState?.audioMuted ? ' · 🔇' : '';
 		const videoStatus = participant.mediaState?.videoMuted ? ' · 📹' : '';
-		label.textContent = `${participant.name}${id === socket.id ? ' (You)' : ''}${participant.isHost ? ' · Host' : ''}${participant.role === 'presenter' ? ' · Presenter' : ''}${muteStatus}${videoStatus}`;
+		label.textContent = `${participant.name}${id === socket.id ? ' (You)' : ''}${participant.email ? ` · ${participant.email}` : ''}${participant.isHost ? ' · Host' : ''}${participant.role === 'presenter' ? ' · Presenter' : ''}${muteStatus}${videoStatus}`;
 		row.appendChild(label);
 		if (isHost && id !== socket.id && !participant.isHost) {
 			const actions = document.createElement('span');
@@ -312,6 +313,8 @@ async function startMeeting(event) {
 	event.preventDefault();
 	$('join-error').textContent = '';
 	displayName = $('name').value.trim() || 'Guest';
+	emailAddress = $('email').value.trim().toLowerCase();
+	if (!emailAddress) return $('join-error').textContent = 'Enter your email address.';
 	updateNameBadge(displayName);
 	const roomValue = $('room').value.trim();
 	try { currentRoom = new URL(roomValue).searchParams.get('room') || roomValue; } catch { currentRoom = roomValue; }
@@ -338,7 +341,7 @@ async function startMeeting(event) {
 			localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 		}
 		localTileId = socket.id || 'local';
-		participants.set(socket.id, { name: displayName, isHost: false, role: 'participant', mediaState: { audioMuted: false, videoMuted: false } });
+		participants.set(socket.id, { name: displayName, email: emailAddress, isHost: false, role: 'participant', mediaState: { audioMuted: false, videoMuted: false } });
 		addVideo(localTileId, displayName, localStream, true);
 		$('room-title').textContent = currentRoom;
 		$('copy-link-button').title = meetingLink();
@@ -346,7 +349,7 @@ async function startMeeting(event) {
 		meetingScreen.classList.add('hidden');
 		waitingScreen.classList.add('hidden');
 		document.body.classList.add('in-meeting');
-		socket.emit('join-room', { roomId: currentRoom, name: displayName }, ({ state, host }) => {
+		socket.emit('join-room', { roomId: currentRoom, name: displayName, email: emailAddress }, ({ state, host }) => {
 			if (state === 'pending') {
 				joinScreen.classList.add('hidden');
 				meetingScreen.classList.add('hidden');
@@ -375,7 +378,7 @@ socket.on('room-users', async (users) => {
 	}
 	renderParticipants();
 });
-socket.on('user-joined', ({ id, name }) => { participants.set(id, { name, isHost: false, role: 'participant', mediaState: { audioMuted: false, videoMuted: false } }); renderParticipants(); return createPeer(id, name, false); });
+socket.on('user-joined', ({ id, name, email }) => { participants.set(id, { name, email, isHost: false, role: 'participant', mediaState: { audioMuted: false, videoMuted: false } }); renderParticipants(); return createPeer(id, name, false); });
 socket.on('signal', async ({ sender, signal }) => {
 	const peer = peers.get(sender) || { connection: await createPeer(sender, 'Guest', false) };
 	const connection = peer.connection;

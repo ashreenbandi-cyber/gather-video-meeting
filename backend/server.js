@@ -34,9 +34,10 @@ const rooms = new Map();
 const waitingQueues = new Map();
 
 io.on('connection', (socket) => {
-	socket.on('join-room', ({ roomId, name }, acknowledge) => {
+	socket.on('join-room', ({ roomId, name, email }, acknowledge) => {
 		const cleanRoomId = String(roomId || '').trim().slice(0, 80);
 		const cleanName = String(name || 'Guest').trim().slice(0, 40) || 'Guest';
+		const cleanEmail = String(email || '').trim().slice(0, 160);
 		if (!cleanRoomId) {
 			socket.emit('join-error', 'Enter a room name to continue.');
 			return acknowledge?.({ state: 'error' });
@@ -47,11 +48,12 @@ io.on('connection', (socket) => {
 
 		if (isHost) {
 			const newRoom = new Map();
-			newRoom.set(socket.id, { name: cleanName, handRaised: false, isHost: true, role: 'host', state: 'approved', mediaState: { audioMuted: false, videoMuted: false } });
+			newRoom.set(socket.id, { name: cleanName, email: cleanEmail, handRaised: false, isHost: true, role: 'host', state: 'approved', mediaState: { audioMuted: false, videoMuted: false } });
 			rooms.set(cleanRoomId, newRoom);
 			socket.join(cleanRoomId);
 			socket.data.roomId = cleanRoomId;
 			socket.data.name = cleanName;
+			socket.data.email = cleanEmail;
 			socket.data.state = 'approved';
 			socket.emit('room-users', []);
 			socket.emit('host-status', true);
@@ -59,10 +61,11 @@ io.on('connection', (socket) => {
 			acknowledge?.({ state: 'approved', host: true });
 		} else {
 			const waitingQueue = waitingQueues.get(cleanRoomId) || new Map();
-			waitingQueue.set(socket.id, { name: cleanName, state: 'pending', socketId: socket.id });
+			waitingQueue.set(socket.id, { name: cleanName, email: cleanEmail, state: 'pending', socketId: socket.id });
 			waitingQueues.set(cleanRoomId, waitingQueue);
 			socket.data.roomId = cleanRoomId;
 			socket.data.name = cleanName;
+			socket.data.email = cleanEmail;
 			socket.data.state = 'pending';
 			socket.emit('waiting-room', { status: 'pending', message: 'Waiting for host to approve...' });
 			const queueList = [...waitingQueue.entries()].map(([id, user]) => ({ id, ...user }));
@@ -81,7 +84,7 @@ io.on('connection', (socket) => {
 			const pendingUser = waitingQueue?.get(target);
 			if (pendingUser) {
 				waitingQueue.delete(target);
-				room.set(target, { name: pendingUser.name, handRaised: false, isHost: false, role: 'participant', state: 'approved', mediaState: { audioMuted: false, videoMuted: false } });
+				room.set(target, { name: pendingUser.name, email: pendingUser.email, handRaised: false, isHost: false, role: 'participant', state: 'approved', mediaState: { audioMuted: false, videoMuted: false } });
 				rooms.set(socket.data.roomId, room);
 				io.sockets.sockets.get(target)?.data && (io.sockets.sockets.get(target).data.state = 'approved');
 				io.to(target).emit('approval-granted');
@@ -89,7 +92,7 @@ io.on('connection', (socket) => {
 				io.to(target).emit('room-users', peers);
 				const queueList = [...waitingQueue.entries()].map(([id, user]) => ({ id, ...user }));
 				io.to(socket.data.roomId).emit('waiting-queue', queueList);
-				io.to(socket.data.roomId).emit('user-joined', { id: target, name: pendingUser.name });
+				io.to(socket.data.roomId).emit('user-joined', { id: target, name: pendingUser.name, email: pendingUser.email });
 			}
 		} else if (action === 'reject') {
 			const waitingQueue = waitingQueues.get(socket.data.roomId);
