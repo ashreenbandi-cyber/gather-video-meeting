@@ -1,6 +1,6 @@
 .mute-badge { background: rgba(23, 33, 38, 0.9) !important; }
 .meeting-error { background: var(--ink) !important; }
-.meeting-error { display: block !important; }
+.meeting-error:empty { display: none !important; }
 .mute-badge { background: rgba(23, 33, 38, 0.9); }
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 :root { --ink: #172126; --muted: #68757a; --paper: #f4f1ea; --lime: #c7f36b; --line: #d6dbd5; --orange: #ff8066; }
@@ -87,7 +87,9 @@ body.in-meeting { overflow: hidden; }
 .meeting-body { min-width: 0; }
 .video-grid { grid-auto-rows: minmax(0, 1fr); align-items: center; justify-items: center; }
 .video-tile { min-height: 0; max-height: 100%; }
-.video-tile video { display: block; object-fit: contain; background: #20282b; }
+.video-tile video { display: block; object-fit: contain; background: transparent; }
+.meeting-error { display: none !important; width: max-content; max-width: calc(100% - 32px); }
+.meeting-error:not(:empty) { display: block !important; }
 .profile-chip { cursor: pointer; }
 .profile-chip:focus-visible, .control-button:focus-visible, .icon-button:focus-visible, .secondary-button:focus-visible, .primary-button:focus-visible { outline: 3px solid rgba(125, 155, 57, .45); outline-offset: 2px; }
 .meeting-error { pointer-events: none; }
