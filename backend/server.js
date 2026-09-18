@@ -133,6 +133,21 @@ io.on('connection', (socket) => {
 		io.to(roomId).emit('participant-media-state', { id: socket.id, audioMuted: Boolean(audioMuted), videoMuted: Boolean(videoMuted) });
 	});
 
+	socket.on('control-request', ({ target }) => {
+		const room = rooms.get(socket.data.roomId);
+		const requester = room?.get(socket.id);
+		const targetParticipant = room?.get(target);
+		if (!room || !requester || !targetParticipant || target === socket.id || (!targetParticipant.isHost && targetParticipant.role !== 'presenter')) return;
+		io.to(target).emit('control-request', { id: socket.id, name: requester.name || 'A participant' });
+	});
+
+	socket.on('control-response', ({ requester, approved }) => {
+		const room = rooms.get(socket.data.roomId);
+		const presenter = room?.get(socket.id);
+		if (!room || !presenter || (!presenter.isHost && presenter.role !== 'presenter') || !room.has(requester)) return;
+		io.to(requester).emit('control-response', { approved: Boolean(approved), name: presenter.name || 'Presenter' });
+	});
+
 	socket.on('signal', ({ target, signal }) => {
 		if (target && signal) io.to(target).emit('signal', { sender: socket.id, signal });
 	});

@@ -147,6 +147,17 @@ function renderParticipants() {
 		const videoStatus = participant.mediaState?.videoMuted ? ' · 📹' : '';
 		label.textContent = `${participant.name}${id === socket.id ? ' (You)' : ''}${participant.email ? ` · ${participant.email}` : ''}${participant.isHost ? ' · Host' : ''}${participant.role === 'presenter' ? ' · Presenter' : ''}${muteStatus}${videoStatus}`;
 		row.appendChild(label);
+		if (id !== socket.id && participant.role === 'presenter') {
+			const requestControl = document.createElement('button');
+			requestControl.type = 'button';
+			requestControl.textContent = 'Request control';
+			requestControl.title = 'Ask this presenter for permission to control the shared screen';
+			requestControl.addEventListener('click', () => {
+				socket.emit('control-request', { target: id });
+				showMeetingToast(`Control request sent to ${participant.name}.`, 'info');
+			});
+			row.appendChild(requestControl);
+		}
 		if (isHost && id !== socket.id && !participant.isHost) {
 			const actions = document.createElement('span');
 			const mute = document.createElement('button');
@@ -876,4 +887,23 @@ $('send-report-button').addEventListener('click', () => {
 		showMeetingToast('Thanks. Your problem report was sent.', 'success');
 		$('report-text').value = '';
 		$('report-section').classList.add('hidden');
+});
+socket.on('control-request', ({ id, name }) => {
+	if (id === socket.id) return;
+	const toast = document.createElement('div');
+	toast.className = 'meeting-toast control-request';
+	toast.textContent = `${name || 'A participant'} wants to control your shared screen.`;
+	const approve = document.createElement('button');
+	approve.type = 'button';
+	approve.textContent = 'Approve';
+	approve.addEventListener('click', () => { socket.emit('control-response', { requester: id, approved: true }); toast.remove(); });
+	const deny = document.createElement('button');
+	deny.type = 'button';
+	deny.textContent = 'Deny';
+	deny.addEventListener('click', () => { socket.emit('control-response', { requester: id, approved: false }); toast.remove(); });
+	toast.append(approve, deny);
+	$('meeting-notifications').appendChild(toast);
+});
+socket.on('control-response', ({ approved, name }) => {
+	showMeetingToast(approved ? `${name || 'Presenter'} approved control.` : `${name || 'Presenter'} denied control.`, approved ? 'success' : 'error');
 });
