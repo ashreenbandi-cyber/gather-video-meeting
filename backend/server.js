@@ -32,6 +32,7 @@ app.use((req, res, next) => {
 
 const rooms = new Map();
 const waitingQueues = new Map();
+const roomSettings = new Map();
 
 io.on('connection', (socket) => {
 	socket.on('join-room', ({ roomId, name, email }, acknowledge) => {
@@ -47,6 +48,7 @@ io.on('connection', (socket) => {
 		const isHost = !room || room.size === 0;
 
 		if (isHost) {
+			roomSettings.set(cleanRoomId, { quickAccess: false, chatAllowed: true, handRaiseAllowed: true, screenShareAllowed: true });
 			const newRoom = new Map();
 			newRoom.set(socket.id, { name: cleanName, email: cleanEmail, handRaised: false, isHost: true, role: 'host', state: 'approved', mediaState: { audioMuted: false, videoMuted: false } });
 			rooms.set(cleanRoomId, newRoom);
@@ -60,6 +62,20 @@ io.on('connection', (socket) => {
 			socket.emit('waiting-queue', []);
 			acknowledge?.({ state: 'approved', host: true });
 		} else {
+			if (roomSettings.get(cleanRoomId)?.quickAccess) {
+				room.set(socket.id, { name: cleanName, email: cleanEmail, handRaised: false, isHost: false, role: 'participant', state: 'approved', mediaState: { audioMuted: false, videoMuted: false } });
+				rooms.set(cleanRoomId, room);
+				socket.join(cleanRoomId);
+				socket.data.roomId = cleanRoomId;
+				socket.data.name = cleanName;
+				socket.data.email = cleanEmail;
+				socket.data.state = 'approved';
+				socket.emit('room-users', [...room.entries()].filter(([id]) => id !== socket.id).map(([id, participant]) => ({ id, ...participant })));
+				socket.emit('approval-granted');
+				acknowledge?.({ state: 'approved', host: false });
+				io.to(cleanRoomId).emit('user-joined', { id: socket.id, name: cleanName, email: cleanEmail });
+				return;
+			}
 			const waitingQueue = waitingQueues.get(cleanRoomId) || new Map();
 			waitingQueue.set(socket.id, { name: cleanName, email: cleanEmail, state: 'pending', socketId: socket.id });
 			waitingQueues.set(cleanRoomId, waitingQueue);
@@ -72,12 +88,25 @@ io.on('connection', (socket) => {
 			io.to(cleanRoomId).emit('waiting-queue', queueList);
 			acknowledge?.({ state: 'pending' });
 		}
+		io.to(socket.id).emit('room-settings', roomSettings.get(cleanRoomId));
 	});
 
-	socket.on('host-action', ({ action, target }) => {
+	socket.on('host-action', ({ action, target, settings }) => {
 		const room = rooms.get(socket.data.roomId);
 		const host = room?.get(socket.id);
-		if (!room || !host?.isHost || !target) return;
+		if (!room || !host?.isHost) return;
+		if (action === 'update-settings') {
+			const settings = {
+				quickAccess: Boolean(settings?.quickAccess),
+				chatAllowed: Boolean(settings?.chatAllowed),
+				handRaiseAllowed: Boolean(settings?.handRaiseAllowed),
+				screenShareAllowed: Boolean(settings?.screenShareAllowed),
+			};
+			roomSettings.set(socket.data.roomId, settings);
+			io.to(socket.data.roomId).emit('room-settings', settings);
+			return;
+		}
+		if (!target) return;
 
 		if (action === 'approve') {
 			const waitingQueue = waitingQueues.get(socket.data.roomId);
@@ -155,6 +184,7 @@ io.on('connection', (socket) => {
 	socket.on('chat-message', (text) => {
 		const roomId = socket.data.roomId;
 		if (!roomId || typeof text !== 'string') return;
+		if (roomSettings.get(roomId)?.chatAllowed === false) return socket.emit('permission-denied', 'The host has disabled chat.');
 		const message = text.trim().slice(0, 1000);
 		if (!message) return;
 		io.to(roomId).emit('chat-message', { id: socket.id, name: socket.data.name || 'Guest', text: message, timestamp: Date.now() });
@@ -170,6 +200,7 @@ io.on('connection', (socket) => {
 		const roomId = socket.data.roomId;
 		const room = rooms.get(roomId);
 		if (!room || !room.has(socket.id)) return;
+		if (roomSettings.get(roomId)?.handRaiseAllowed === false) return socket.emit('permission-denied', 'The host has disabled hand raising.');
 		const handIsRaised = Boolean(raised);
 		room.get(socket.id).handRaised = handIsRaised;
 		io.to(roomId).emit('hand-raise', { id: socket.id, raised: handIsRaised });
@@ -218,6 +249,7 @@ io.on('connection', (socket) => {
 		if (room.size === 0) {
 			rooms.delete(roomId);
 			waitingQueues.delete(roomId);
+			roomSettings.delete(roomId);
 		}
 	});
 });

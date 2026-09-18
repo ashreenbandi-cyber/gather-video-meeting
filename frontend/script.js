@@ -23,6 +23,7 @@ let cameraFacingMode = 'user';
 const raisedHandNotifications = new Map();
 let recordingStartedAt = 0;
 let recordingTimer;
+let roomSettings = { quickAccess: false, chatAllowed: true, handRaiseAllowed: true, screenShareAllowed: true };
 
 const $ = (id) => document.getElementById(id);
 const joinScreen = $('join-screen');
@@ -207,6 +208,20 @@ function renderWaitingQueue(queue) {
 		actions.append(approve, reject);
 		row.appendChild(actions);
 		pendingUsersDiv.appendChild(row);
+	}
+}
+
+function renderRoomSettings(settings = {}) {
+	roomSettings = { ...roomSettings, ...settings };
+	const controls = {
+		'quick-access-toggle': roomSettings.quickAccess,
+		'chat-permission-toggle': roomSettings.chatAllowed,
+		'hand-permission-toggle': roomSettings.handRaiseAllowed,
+		'share-permission-toggle': roomSettings.screenShareAllowed,
+	};
+	for (const [id, value] of Object.entries(controls)) {
+		const input = $(id);
+		if (input) input.checked = Boolean(value);
 	}
 }
 
@@ -436,6 +451,8 @@ socket.on('host-status', (host) => {
 	}
 	renderParticipants();
 });
+socket.on('room-settings', (settings) => renderRoomSettings(settings));
+socket.on('permission-denied', (message) => showMeetingToast(message, 'error'));
 socket.on('host-changed', (id) => { const participant = participants.get(id); if (participant) participant.isHost = true; renderParticipants(); });
 socket.on('participant-role-changed', ({ id, role }) => {
 	const participant = participants.get(id);
@@ -613,6 +630,7 @@ $('switch-camera-button').addEventListener('click', async () => {
 });
 $('hand-button').addEventListener('click', () => { handRaised = !handRaised; $('hand-button').classList.toggle('active', handRaised); document.querySelector('#hand-button small').textContent = handRaised ? 'Lower hand' : 'Raise hand'; socket.emit('hand-raise', handRaised); });
 $('share-button').addEventListener('click', async () => {
+	if (!isHost && !isPresenter && !roomSettings.screenShareAllowed) return showMeetingToast('The host has disabled screen sharing.', 'error');
 	if (screenStream) return stopSharing();
 	const getDisplayMedia = navigator.mediaDevices?.getDisplayMedia?.bind(navigator.mediaDevices) || navigator.getDisplayMedia?.bind(navigator);
 	if (!getDisplayMedia) return showMeetingError('This browser cannot start screen sharing. Other participants can still view a share started from a supported laptop browser.');
@@ -907,3 +925,17 @@ socket.on('control-request', ({ id, name }) => {
 socket.on('control-response', ({ approved, name }) => {
 	showMeetingToast(approved ? `${name || 'Presenter'} approved control.` : `${name || 'Presenter'} denied control.`, approved ? 'success' : 'error');
 });
+for (const id of ['quick-access-toggle', 'chat-permission-toggle', 'hand-permission-toggle', 'share-permission-toggle']) {
+	$(id)?.addEventListener('change', () => {
+		if (!isHost) return;
+		socket.emit('host-action', {
+			action: 'update-settings',
+			settings: {
+				quickAccess: $('quick-access-toggle').checked,
+				chatAllowed: $('chat-permission-toggle').checked,
+				handRaiseAllowed: $('hand-permission-toggle').checked,
+				screenShareAllowed: $('share-permission-toggle').checked,
+			},
+		});
+	});
+}

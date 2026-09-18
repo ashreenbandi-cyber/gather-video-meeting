@@ -65,7 +65,13 @@
 				<form id="chat-form" class="chat-form"><input id="chat-input" placeholder="Write a message..." maxlength="1000" autocomplete="off"><button type="submit" aria-label="Send message">&#8594;</button></form>
 			</aside>
 			<aside id="host-panel" class="host-panel hidden">
-				<div class="chat-header"><div><p class="eyebrow">MEETING PEOPLE</p><h2>Participants</h2><p class="panel-hint">Presenters can share their screen. Request control when you need to interact with an approved share.</p></div><button id="close-host" class="icon-button" type="button" aria-label="Close participants">&#10005;</button></div>
+				<div class="chat-header"><div><p class="eyebrow">HOST MANAGEMENT</p><h2>People & permissions</h2><p class="panel-hint">Control who can join, chat, raise a hand, and present.</p></div><button id="close-host" class="icon-button" type="button" aria-label="Close host management">&#10005;</button></div>
+				<section class="host-settings">
+					<label class="setting-toggle"><input id="quick-access-toggle" type="checkbox" checked><span>Quick access</span></label>
+					<label class="setting-toggle"><input id="chat-permission-toggle" type="checkbox" checked><span>Let everyone send chat messages</span></label>
+					<label class="setting-toggle"><input id="hand-permission-toggle" type="checkbox" checked><span>Let everyone raise hands</span></label>
+					<label class="setting-toggle"><input id="share-permission-toggle" type="checkbox" checked><span>Let presenters share screen</span></label>
+				</section>
 				<div id="waiting-queue" class="waiting-queue hidden">
 					<p class="eyebrow">WAITING FOR APPROVAL</p>
 					<div id="pending-users"></div>
