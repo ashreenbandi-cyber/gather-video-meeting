@@ -48,7 +48,7 @@ io.on('connection', (socket) => {
 		const isHost = !room || room.size === 0;
 
 		if (isHost) {
-			roomSettings.set(cleanRoomId, { quickAccess: false, chatAllowed: true, handRaiseAllowed: true, screenShareAllowed: true });
+			roomSettings.set(cleanRoomId, { quickAccess: false, chatAllowed: true, handRaiseAllowed: true, screenShareAllowed: true, audioAllowed: true, videoAllowed: true, reactionsAllowed: true });
 			const newRoom = new Map();
 			newRoom.set(socket.id, { name: cleanName, email: cleanEmail, handRaised: false, isHost: true, role: 'host', state: 'approved', mediaState: { audioMuted: false, videoMuted: false } });
 			rooms.set(cleanRoomId, newRoom);
@@ -96,14 +96,17 @@ io.on('connection', (socket) => {
 		const host = room?.get(socket.id);
 		if (!room || !host?.isHost) return;
 		if (action === 'update-settings') {
-			const settings = {
+			const nextSettings = {
 				quickAccess: Boolean(settings?.quickAccess),
 				chatAllowed: Boolean(settings?.chatAllowed),
 				handRaiseAllowed: Boolean(settings?.handRaiseAllowed),
 				screenShareAllowed: Boolean(settings?.screenShareAllowed),
+				audioAllowed: Boolean(settings?.audioAllowed),
+				videoAllowed: Boolean(settings?.videoAllowed),
+				reactionsAllowed: Boolean(settings?.reactionsAllowed),
 			};
-			roomSettings.set(socket.data.roomId, settings);
-			io.to(socket.data.roomId).emit('room-settings', settings);
+			roomSettings.set(socket.data.roomId, nextSettings);
+			io.to(socket.data.roomId).emit('room-settings', nextSettings);
 			return;
 		}
 		if (!target) return;
@@ -158,8 +161,17 @@ io.on('connection', (socket) => {
 		const room = rooms.get(roomId);
 		const participant = room?.get(socket.id);
 		if (!roomId || !participant) return;
+		const settings = roomSettings.get(roomId);
+		if (!participant.isHost && !settings?.audioAllowed && audioMuted === false) return socket.emit('permission-denied', 'The host has disabled microphones.');
+		if (!participant.isHost && !settings?.videoAllowed && videoMuted === false) return socket.emit('permission-denied', 'The host has disabled cameras.');
 		participant.mediaState = { audioMuted: Boolean(audioMuted), videoMuted: Boolean(videoMuted) };
 		io.to(roomId).emit('participant-media-state', { id: socket.id, audioMuted: Boolean(audioMuted), videoMuted: Boolean(videoMuted) });
+	});
+
+	socket.on('reaction', (emoji) => {
+		const roomId = socket.data.roomId;
+		if (!roomId || roomSettings.get(roomId)?.reactionsAllowed === false) return socket.emit('permission-denied', 'The host has disabled reactions.');
+		io.to(roomId).emit('reaction', { name: socket.data.name || 'Someone', emoji: String(emoji || '').slice(0, 4) });
 	});
 
 	socket.on('control-request', ({ target }) => {

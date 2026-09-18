@@ -23,7 +23,7 @@ let cameraFacingMode = 'user';
 const raisedHandNotifications = new Map();
 let recordingStartedAt = 0;
 let recordingTimer;
-let roomSettings = { quickAccess: false, chatAllowed: true, handRaiseAllowed: true, screenShareAllowed: true };
+let roomSettings = { quickAccess: false, chatAllowed: true, handRaiseAllowed: true, screenShareAllowed: true, audioAllowed: true, videoAllowed: true, reactionsAllowed: true };
 
 const $ = (id) => document.getElementById(id);
 const joinScreen = $('join-screen');
@@ -218,6 +218,9 @@ function renderRoomSettings(settings = {}) {
 		'chat-permission-toggle': roomSettings.chatAllowed,
 		'hand-permission-toggle': roomSettings.handRaiseAllowed,
 		'share-permission-toggle': roomSettings.screenShareAllowed,
+		'audio-permission-toggle': roomSettings.audioAllowed,
+		'video-permission-toggle': roomSettings.videoAllowed,
+		'reaction-permission-toggle': roomSettings.reactionsAllowed,
 	};
 	for (const [id, value] of Object.entries(controls)) {
 		const input = $(id);
@@ -453,6 +456,7 @@ socket.on('host-status', (host) => {
 });
 socket.on('room-settings', (settings) => renderRoomSettings(settings));
 socket.on('permission-denied', (message) => showMeetingToast(message, 'error'));
+socket.on('reaction', ({ name, emoji }) => showMeetingToast(`${name || 'Someone'} reacted ${emoji}`, 'success'));
 socket.on('host-changed', (id) => { const participant = participants.get(id); if (participant) participant.isHost = true; renderParticipants(); });
 socket.on('participant-role-changed', ({ id, role }) => {
 	const participant = participants.get(id);
@@ -591,7 +595,9 @@ $('calendar-link-button').addEventListener('click', () => {
 	url.search = new URLSearchParams({ action: 'TEMPLATE', text: title, dates: `${calendarDate(start)}/${calendarDate(endDate.toISOString().slice(0, 16))}`, details }).toString();
 	window.open(url, '_blank', 'noopener');
 });
+
 $('mic-button').addEventListener('click', () => {
+	if (!isHost && !roomSettings.audioAllowed) return showMeetingToast('The host has disabled microphones.', 'error');
 	const track = localStream?.getAudioTracks()[0];
 	if (!track) return;
 	track.enabled = !track.enabled;
@@ -600,6 +606,7 @@ $('mic-button').addEventListener('click', () => {
 	publishMediaState();
 });
 $('camera-button').addEventListener('click', () => {
+	if (!isHost && !roomSettings.videoAllowed) return showMeetingToast('The host has disabled cameras.', 'error');
 	const track = localStream?.getVideoTracks()[0];
 	if (!track) return;
 	track.enabled = !track.enabled;
@@ -680,18 +687,32 @@ function setChatPanelOpen(isOpen) {
 	$('chat-panel').classList.toggle('open', isOpen);
 	if (isOpen) $('host-panel').classList.add('hidden');
 	if (isOpen) $('file-panel').classList.add('hidden');
+	if (isOpen) $('utility-panel').classList.add('hidden');
+	if (isOpen) $('activity-panel').classList.add('hidden');
 }
 
 function setHostPanelOpen(isOpen) {
 	$('host-panel').classList.toggle('hidden', !isOpen);
 	if (isOpen) $('chat-panel').classList.remove('open');
 	if (isOpen) $('file-panel').classList.add('hidden');
+	if (isOpen) $('utility-panel').classList.add('hidden');
+	if (isOpen) $('activity-panel').classList.add('hidden');
 }
 
 function setFilePanelOpen(isOpen) {
 	$('file-panel').classList.toggle('hidden', !isOpen);
 	if (isOpen) $('chat-panel').classList.remove('open');
 	if (isOpen) $('host-panel').classList.add('hidden');
+	if (isOpen) $('utility-panel').classList.add('hidden');
+	if (isOpen) $('activity-panel').classList.add('hidden');
+}
+
+function setActivityPanelOpen(isOpen) {
+	$('activity-panel').classList.toggle('hidden', !isOpen);
+	if (isOpen) $('chat-panel').classList.remove('open');
+	if (isOpen) $('host-panel').classList.add('hidden');
+	if (isOpen) $('file-panel').classList.add('hidden');
+	if (isOpen) $('utility-panel').classList.add('hidden');
 }
 
 $('chat-button').addEventListener('click', () => {
@@ -700,6 +721,9 @@ $('chat-button').addEventListener('click', () => {
 });
 $('close-chat').addEventListener('click', () => setChatPanelOpen(false));
 $('close-host').addEventListener('click', () => setHostPanelOpen(false));
+$('people-button').addEventListener('click', () => setHostPanelOpen($('host-panel').classList.contains('hidden')));
+$('activities-button').addEventListener('click', () => setActivityPanelOpen($('activity-panel').classList.contains('hidden')));
+$('close-activities').addEventListener('click', () => setActivityPanelOpen(false));
 $('profile-button').addEventListener('click', () => {
 	const shouldOpen = $('host-panel').classList.contains('hidden');
 	setHostPanelOpen(shouldOpen);
@@ -790,6 +814,21 @@ function setUtilityPanelOpen(isOpen) {
 }
 $('more-button').addEventListener('click', () => setUtilityPanelOpen(utilityPanel.classList.contains('hidden')));
 $('close-utility').addEventListener('click', () => setUtilityPanelOpen(false));
+$('reaction-button').addEventListener('click', () => setActivityPanelOpen(true));
+$('captions-button').addEventListener('click', () => {
+	const toggle = $('captions-toggle');
+	toggle.checked = !toggle.checked;
+	toggle.dispatchEvent(new Event('change'));
+});
+document.querySelectorAll('[data-reaction]').forEach((button) => button.addEventListener('click', () => {
+	showMeetingToast(`${displayName || 'You'} reacted ${button.dataset.reaction}`, 'success');
+	socket.emit('reaction', button.dataset.reaction);
+}));
+$('copy-details-button').addEventListener('click', async () => {
+	const details = `Gather Meeting\nMeeting ID: ${currentRoom}\nJoin: ${meetingLink()}`;
+	try { await navigator.clipboard.writeText(details); showMeetingToast('Joining information copied.', 'success'); } catch { showMeetingError(details); }
+});
+$('create-poll-button').addEventListener('click', () => showMeetingToast('Poll creation is ready for a future poll question.', 'info'));
 
 async function getAudioDevices() {
 		const select = $('audioOutputSelect');
@@ -925,7 +964,7 @@ socket.on('control-request', ({ id, name }) => {
 socket.on('control-response', ({ approved, name }) => {
 	showMeetingToast(approved ? `${name || 'Presenter'} approved control.` : `${name || 'Presenter'} denied control.`, approved ? 'success' : 'error');
 });
-for (const id of ['quick-access-toggle', 'chat-permission-toggle', 'hand-permission-toggle', 'share-permission-toggle']) {
+for (const id of ['quick-access-toggle', 'chat-permission-toggle', 'hand-permission-toggle', 'share-permission-toggle', 'audio-permission-toggle', 'video-permission-toggle', 'reaction-permission-toggle']) {
 	$(id)?.addEventListener('change', () => {
 		if (!isHost) return;
 		socket.emit('host-action', {
@@ -935,6 +974,9 @@ for (const id of ['quick-access-toggle', 'chat-permission-toggle', 'hand-permiss
 				chatAllowed: $('chat-permission-toggle').checked,
 				handRaiseAllowed: $('hand-permission-toggle').checked,
 				screenShareAllowed: $('share-permission-toggle').checked,
+				audioAllowed: $('audio-permission-toggle').checked,
+				videoAllowed: $('video-permission-toggle').checked,
+				reactionsAllowed: $('reaction-permission-toggle').checked,
 			},
 		});
 	});

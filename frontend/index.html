@@ -71,6 +71,9 @@
 					<label class="setting-toggle"><input id="chat-permission-toggle" type="checkbox" checked><span>Let everyone send chat messages</span></label>
 					<label class="setting-toggle"><input id="hand-permission-toggle" type="checkbox" checked><span>Let everyone raise hands</span></label>
 					<label class="setting-toggle"><input id="share-permission-toggle" type="checkbox" checked><span>Let presenters share screen</span></label>
+					<label class="setting-toggle"><input id="audio-permission-toggle" type="checkbox" checked><span>Let everyone use microphone</span></label>
+					<label class="setting-toggle"><input id="video-permission-toggle" type="checkbox" checked><span>Let everyone use camera</span></label>
+					<label class="setting-toggle"><input id="reaction-permission-toggle" type="checkbox" checked><span>Let everyone send reactions</span></label>
 				</section>
 				<div id="waiting-queue" class="waiting-queue hidden">
 					<p class="eyebrow">WAITING FOR APPROVAL</p>
@@ -92,6 +95,12 @@
 				<section class="utility-section"><h3>Settings</h3><button id="settings-button" class="secondary-button compact-button" type="button">Open device settings</button><div id="device-settings" class="device-settings hidden"><label for="camera-input-select">Camera</label><select id="camera-input-select"></select><label for="microphone-input-select">Microphone</label><select id="microphone-input-select"></select><button id="apply-device-button" class="primary-button compact-button" type="button">Apply devices</button></div><button id="report-button" class="secondary-button compact-button" type="button">Report a problem</button></section>
 				<section id="report-section" class="utility-section hidden"><label for="report-text">What went wrong?</label><textarea id="report-text" rows="3" maxlength="500" placeholder="Tell us what happened"></textarea><button id="send-report-button" class="primary-button compact-button" type="button">Send report</button></section>
 			</aside>
+			<aside id="activity-panel" class="utility-panel hidden">
+				<div class="chat-header"><div><p class="eyebrow">ACTIVITIES</p><h2>Meeting activities</h2></div><button id="close-activities" class="icon-button" type="button" aria-label="Close activities">&#10005;</button></div>
+				<section class="utility-section"><h3>Reactions</h3><div class="reaction-grid"><button type="button" data-reaction="👍">👍</button><button type="button" data-reaction="❤️">❤️</button><button type="button" data-reaction="😂">😂</button><button type="button" data-reaction="😮">😮</button><button type="button" data-reaction="🎉">🎉</button><button type="button" data-reaction="👏">👏</button></div></section>
+				<section class="utility-section"><h3>Meeting details</h3><p class="panel-hint">Gather Meeting</p><p class="panel-hint">Meeting ID: <strong id="meeting-id-detail"></strong></p><button id="copy-details-button" class="secondary-button compact-button" type="button">Copy joining information</button></section>
+				<section class="utility-section"><h3>Polls</h3><p class="panel-hint">Polls and Q&A can be added here for your meeting.</p><button id="create-poll-button" class="secondary-button compact-button" type="button">Create a poll</button></section>
+			</aside>
 			<div id="caption-display" class="caption-display hidden" aria-live="polite"></div>
 			<p id="meeting-error" class="meeting-error" role="alert"></p>
 		</section>
@@ -100,8 +109,12 @@
 			<button id="camera-button" class="control-button" type="button"><span>&#128249;</span><small>Camera</small></button>
 			<button id="switch-camera-button" class="control-button" type="button" title="Switch front or back camera"><span>&#128260;</span><small>Flip camera</small></button>
 			<button id="hand-button" class="control-button" type="button"><span>&#9995;</span><small>Raise hand</small></button>
+			<button id="captions-button" class="control-button" type="button"><span>CC</span><small>Captions</small></button>
+			<button id="reaction-button" class="control-button" type="button"><span>😊</span><small>Reactions</small></button>
 			<button id="share-button" class="control-button" type="button"><span>&#8593;</span><small>Share screen</small></button>
 			<button id="chat-button" class="control-button" type="button"><span>&#9993;</span><small>Chat</small></button>
+			<button id="people-button" class="control-button" type="button"><span>👥</span><small>People</small></button>
+			<button id="activities-button" class="control-button" type="button"><span>✦</span><small>Activities</small></button>
 			<button id="file-button" class="control-button hidden" type="button"><span>&#128451;</span><small>Files</small></button>
 			<button id="record-button" class="control-button" type="button"><span>&#9679;</span><small>Record</small></button>
 			<button id="fullscreenBtn" class="control-button" type="button" title="Toggle fullscreen"><span>&#x26F6;</span><small>Fullscreen</small></button>

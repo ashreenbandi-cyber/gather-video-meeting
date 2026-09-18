@@ -36,6 +36,8 @@ body.in-meeting { overflow: hidden; }
 .utility-panel { display: flex; flex: 0 0 320px; flex-direction: column; min-height: 0; overflow-y: auto; padding: 22px; background: #fff; border-left: 1px solid var(--line); }
 .utility-section { display: grid; gap: 8px; padding: 16px 0; border-top: 1px solid var(--line); }
 .host-settings { display: grid; gap: 9px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.reaction-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.reaction-grid button { min-height: 36px; border: 1px solid var(--line); background: #fbfcfa; font-size: 18px; }
 .utility-section h3 { margin: 0; font: 700 14px 'Space Grotesk', sans-serif; }
 .panel-hint, .utility-section label { margin: 0; color: var(--muted); font-size: 12px; }
 .utility-section input, .utility-section select, .utility-section textarea { width: 100%; padding: 9px; border: 1px solid var(--line); background: #fbfcfa; color: var(--ink); }
