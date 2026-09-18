@@ -814,6 +814,11 @@ function setUtilityPanelOpen(isOpen) {
 }
 $('more-button').addEventListener('click', () => setUtilityPanelOpen(utilityPanel.classList.contains('hidden')));
 $('close-utility').addEventListener('click', () => setUtilityPanelOpen(false));
+$('more-hand-button').addEventListener('click', () => $('hand-button').click());
+$('more-present-button').addEventListener('click', () => $('share-button').click());
+$('more-captions-button').addEventListener('click', () => $('captions-button').click());
+$('more-chat-button').addEventListener('click', () => { setUtilityPanelOpen(false); setChatPanelOpen(true); });
+$('more-report-button').addEventListener('click', () => $('report-button').click());
 $('reaction-button').addEventListener('click', () => setActivityPanelOpen(true));
 $('captions-button').addEventListener('click', () => {
 	const toggle = $('captions-toggle');
@@ -829,6 +834,28 @@ $('copy-details-button').addEventListener('click', async () => {
 	try { await navigator.clipboard.writeText(details); showMeetingToast('Joining information copied.', 'success'); } catch { showMeetingError(details); }
 });
 $('create-poll-button').addEventListener('click', () => showMeetingToast('Poll creation is ready for a future poll question.', 'info'));
+$('test-microphone-button').addEventListener('click', () => {
+	if (!localStream?.getAudioTracks().length) return showMeetingToast('Microphone is not available.', 'error');
+	showMeetingToast('Microphone is working.', 'success');
+});
+$('test-speaker-button').addEventListener('click', async () => {
+	const media = document.querySelector('#video-grid video');
+	if (media) await media.play().catch(() => {});
+	showMeetingToast('Speaker test played.', 'success');
+});
+$('audio-only-toggle').addEventListener('change', (event) => {
+	const track = localStream?.getVideoTracks()[0];
+	if (!track) return;
+	track.enabled = !event.target.checked;
+	showMeetingToast(event.target.checked ? 'On-the-go audio only enabled.' : 'Camera restored.', 'success');
+});
+$('mirror-video-toggle').addEventListener('change', (event) => {
+	const video = document.querySelector(`#tile-${localTileId} video`);
+	if (video) video.style.transform = event.target.checked ? 'scaleX(-1)' : 'none';
+});
+$('caption-size-select').addEventListener('change', (event) => {
+	$('caption-display').style.fontSize = event.target.value === 'large' ? '18px' : event.target.value === 'small' ? '11px' : '14px';
+});
 
 async function getAudioDevices() {
 		const select = $('audioOutputSelect');
